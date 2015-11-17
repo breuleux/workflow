@@ -14,6 +14,7 @@ require:
 
 provide:
    run
+   run-cwd
    quaint-plugin
 
 
@@ -102,6 +103,10 @@ tpl{proj} = '''
 
 ex{command} =
    exec{command} with {error, stdout, stderr} ->
+      if stdout:
+         console.error{"===="}
+         console.error{stdout.trim{}}
+         console.error{"===="}
       if error:
          print 'An error occurred with command "{command}": {error}'
 
@@ -136,7 +141,7 @@ run{} =
          {=> true? r} ->
             print extract-task{p}
             fs.write-file-sync{config-path, safe-dump{config}}
-         {t => match t} ->
+         {t => true? match t} ->
             String? ->
                p.tasks.push{t}
                fs.write-file-sync{config-path, safe-dump{config}}
@@ -144,6 +149,13 @@ run{} =
                p.tasks each task -> print '* {task}'
             else ->
                pass
+         else ->
+            print "TODO"
+            ;; if p.directory:
+            ;;    process.chdir{print expand-home-dir{p.directory}}
+            ;; [Array! p.commands] each cmd when cmd ->
+            ;;    print cmd
+            ;;    ex{cmd}
 
       {dump => true?} ->
          print config-text
@@ -170,3 +182,23 @@ run{} =
          file = path.join{root, '{date}.q'}
          initialize-contents{file, o, config, all-projects, config-path}
          ex{'emacs {file}'}
+
+
+run-cwd{project-name} =
+
+   root = expand-home-dir{'~/wf'}
+   mkdirp.sync{root}
+   config-path = path.join{root, 'config.yaml'}
+   config-text = fs.read-file-sync{config-path, .utf8}
+   config = safe-load{config-text}
+
+   cwd = process.cwd{}
+   p = config.projects[project-name]
+
+   if p.directory:
+      process.chdir{expand-home-dir{p.directory}}
+   [Array! p.commands] each cmd when cmd ->
+      console.error{cmd}
+      ex{cmd}
+   print expand-home-dir{p.directory} or cwd
+

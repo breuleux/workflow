@@ -12,7 +12,8 @@
   "license": "MIT",
   "main": "./lib/index.js",
   "bin": {
-    "wf": "bin/wf"
+    "wf": "bin/wf",
+    "pj": "bin/pj"
   },
   "dependencies": {
     "earlgrey": ">=0.0.12",
