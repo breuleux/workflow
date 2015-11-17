@@ -1,0 +1,170 @@
+
+require:
+   yargs
+   mkdirp
+   path
+   expand-home-dir
+   moment
+   lodash as $
+   fs
+   child_process -> exec
+   js-yaml ->
+      safe-load, safe-dump
+
+provide:
+   run
+
+
+get-arguments{} =
+
+   argv = chain yargs:
+      @usage{"Usage: wf [options]"}
+
+      @alias{.r, .random}
+      @describe{.r, "List random things to do."}
+
+      @alias{.p, .projects}
+      @describe{.p, "List of projects to do."}
+
+      @alias{.y, .ago}
+      @describe{.y, "Open yesterday/n days ago's file."}
+
+      @alias{.t, .future}
+      @describe{.t, "Open/generate tomorrow/in n days' file."}
+
+      @alias{.h, .help}
+      @describe{.h, "This help."}
+
+      @describe{.dump, "Dump configuration"}
+      @describe{.edit, "Edit configuration"}
+
+      @argv
+
+
+random{choices, n = 0} =
+   picks = $.shuffle{a} where a =
+      choices each choice when Math.random{} < 1/choice.interval -> choice
+   a = match n:
+      0 or === true ->
+         picks
+      else ->
+         picks.take{n}
+   $.sort-by{a, x -> x.name}
+
+
+today{} =
+   ;; moment{}.subtract{hours = 6}
+   moment{}
+
+make-contents{o, config, all-projects} =
+   projects =
+      if o.projects:
+         o.projects.split{R" *,"} each name ->
+            config.projects[name] or
+               throw E.no-such-project{name}
+      else:
+         random{all-projects}
+
+   var s = meta{}
+   s ++= "\n"
+   projects each proj ->
+      s ++= tpl{proj}
+   s ++= "\n\nprojects ::"
+   sorted-projects = $.sort-by{all-projects} with x ->
+      x.interval
+   sorted-projects each proj ->
+      s ++= '\n  * {proj.name}'
+   s ++= "\n\n"
+   s
+
+initialize-contents{file, o, config, all-projects, config-path} =
+   if fs.exists-sync{file}:
+      pass
+   else:
+      fs.write-file-sync{file} with
+         make-contents{o, config, all-projects}
+      ;; fs.write-file-sync{config-path, safe-dump{config}}
+
+
+meta{} = '''
+meta ::
+  version = 1
+  date = {today{}.format{"YYYY-MM-DD"}}
+'''
+
+tpl{proj} = '''
+{proj.name} ---
+  # p::0 {extract-task{proj}}
+'''
+
+
+ex{command} =
+   exec{command} with {error, stdout, stderr} ->
+      if error:
+         print 'An error occurred with command "{command}": {error}'
+
+extract-task{p} =
+   p.tasks = $.shuffle{p.tasks}
+   task = p.tasks.shift{}
+   task or "No task found."
+
+
+run{} =
+   o = get-arguments{}
+   root = expand-home-dir{'~/wf'}
+   mkdirp.sync{root}
+   ;; config-path = path.join{root, 'config.json'}
+   ;; config = JSON.parse{fs.read-file-sync{config-path, .utf8}}
+   config-path = path.join{root, 'config.yaml'}
+   config-text = fs.read-file-sync{config-path, .utf8}
+   config = safe-load{config-text}
+   all-projects =
+      items{config.projects} each {k, v} ->
+         v.name = k
+         v
+
+   match o:
+      match {"_" => {p >> config.projects[p]}} ->
+         {=> true? v} ->
+            print p
+         {=> Number? i} ->
+            p.interval = o.i or p.interval
+            print p
+            fs.write-file-sync{config-path, safe-dump{config}}
+         {=> true? r} ->
+            print extract-task{p}
+            fs.write-file-sync{config-path, safe-dump{config}}
+         {t => match t} ->
+            String? ->
+               p.tasks.push{t}
+               fs.write-file-sync{config-path, safe-dump{config}}
+            true? ->
+               p.tasks each task -> print '* {task}'
+            else ->
+               pass
+
+      {dump => true?} ->
+         print config-text
+
+      {edit => true?} ->
+         ex{'emacs {config-path}'}
+
+      {random => true?} ->
+         print [random{all-projects, o.random} each x -> x.name].join{", "}
+
+      {help => true?} ->
+         print yargs.help{}
+
+
+      {ago => true?} ->
+         print "TODO"
+
+      {future => true?} ->
+         print "TODO"
+
+
+      else ->
+         date = today{}.format{"YYYY-MM-DD"}
+         file = path.join{root, '{date}.q'}
+         initialize-contents{file, o, config, all-projects, config-path}
+         ex{'emacs {file}'}

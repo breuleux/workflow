@@ -1,0 +1,38 @@
+{
+  "name": "@breuleux/workflow",
+  "description": "some organizer for myself",
+  "version": "0.0.0",
+  "format": "cjs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/breuleux/workflow"
+  },
+  "keywords": [],
+  "author": "Olivier Breuleux",
+  "license": "MIT",
+  "main": "./lib/index.js",
+  "bin": {
+    "wf": "bin/wf"
+  },
+  "dependencies": {
+    "earlgrey": ">=0.0.12",
+    "earlgrey-runtime": ">=0.0.11",
+    "expand-home-dir": "0.0.2",
+    "js-yaml": "^3.4.3",
+    "lodash": "^3.10.1",
+    "mkdirp": "^0.5.1",
+    "moment": "^2.10.6",
+    "yargs": "^3.29.0"
+  },
+  "devDependencies": {
+    "earlgrey": ">=0.0.12",
+    "mocha": "^2.2.1",
+    "earl-mocha": ">=0.0.2"
+  },
+  "scripts": {
+    "refresh": "earl compile -5vso lib/ src/",
+    "compile": "earl compile -5rvso lib/ src/",
+    "prepublish": "npm run compile",
+    "test": "mocha"
+  }
+}
