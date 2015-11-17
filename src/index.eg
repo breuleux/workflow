@@ -10,9 +10,11 @@ require:
    child_process -> exec
    js-yaml ->
       safe-load, safe-dump
+   .qp -> quaint-plugin
 
 provide:
    run
+   quaint-plugin
 
 
 get-arguments{} =
@@ -88,13 +90,13 @@ initialize-contents{file, o, config, all-projects, config-path} =
 
 meta{} = '''
 meta ::
-  version = 1
+  version = 2
   date = {today{}.format{"YYYY-MM-DD"}}
 '''
 
 tpl{proj} = '''
 {proj.name} ---
-  # p::0 {extract-task{proj}}
+  # ((0)) {extract-task{proj}}
 '''
 
 

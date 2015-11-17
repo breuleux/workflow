@@ -1,0 +1,60 @@
+
+require:
+   quaint ->
+      SeqDocument, MapDocument
+
+provide:
+   quaint-plugin
+
+
+quaint-plugin{@} =
+
+   increment{@, field, value} =
+      @documents.data.set{field} with
+         [@documents.data.get{field} or 0] + Number{value}
+
+   handle-directives{@, directives} =
+      directives each match directive ->
+         R"^-?[0-9]+$"? ->
+            increment{@, .points, Number{directive}}
+            increment{@, if{directive === "0", .failures, .successes}, 1}
+            .points % {"[", directive, "]"}
+         "done" ->
+            .done % "[done]"
+         "" ->
+            pass
+         else ->
+            throw E.unknown-directive{directive}
+
+   @register-documents with {
+      data = MapDocument{}
+   }
+
+   @register-macros with {
+      p{engine, points} =
+         handle-directives{engine, points.raw{}.split{R"[ ,]+"}}
+      projects{engine, projects} =
+         projs.join{", "} where projs =
+            projects.statements{} each stmt ->
+               stmt.extract{"* \\name"}.name.raw{}
+      summary{engine} =
+         {p, f, s} = {.points, .failures, .successes} each field ->
+            engine.documents.data.get{field}
+         table.summary %
+            tr % {th % 'Points', td % p}
+            tr % {th % 'Failures', td % f}
+            tr % {th % 'Successes', td % s}
+            tr % {th % 'Ratio', td % {Math.round{s / [f + s] * 100}, "%"}}
+   }
+
+   @register-rules with {
+      "((\\points))"{engine, {=> points}} =
+         handle-directives{engine, points.raw{}.split{R"[ ,]+"}}
+      "\\project --- \\entries"{engine, {=> project, => entries}} =
+         .task %
+            .project-name %
+               engine.gen{project}
+            .task-body %
+               engine.gen{entries}
+   }
+
