@@ -59,7 +59,7 @@ today{} =
    ;; moment{}.subtract{hours = 6}
    moment{}
 
-make-contents{o, config, all-projects} =
+make-contents{o, config, all-projects, date} =
    projects =
       if o.projects:
          o.projects.split{R" *,"} each name ->
@@ -68,7 +68,7 @@ make-contents{o, config, all-projects} =
       else:
          random{all-projects}
 
-   var s = meta{}
+   var s = meta{date}
    s ++= "\n"
    projects each proj ->
       s ++= tpl{proj}
@@ -80,19 +80,19 @@ make-contents{o, config, all-projects} =
    s ++= "\n\n"
    s
 
-initialize-contents{file, o, config, all-projects, config-path} =
+initialize-contents{file, o, config, all-projects, config-path, date} =
    if fs.exists-sync{file}:
       pass
    else:
       fs.write-file-sync{file} with
-         make-contents{o, config, all-projects}
+         make-contents{o, config, all-projects, date}
       ;; fs.write-file-sync{config-path, safe-dump{config}}
 
 
-meta{} = '''
+meta{date} = '''
 meta ::
   version = 2
-  date = {today{}.format{"YYYY-MM-DD"}}
+  date = {date.format{"YYYY-MM-DD"}}
 '''
 
 tpl{proj} = '''
@@ -117,6 +117,7 @@ extract-task{p} =
 
 
 run{} =
+
    o = get-arguments{}
    root = expand-home-dir{'~/wf'}
    mkdirp.sync{root}
@@ -129,6 +130,11 @@ run{} =
       items{config.projects} each {k, v} ->
          v.name = k
          v
+
+   open{date} =
+      file = path.join{root, '{date.format{"YYYY-MM-DD"}}.q'}
+      initialize-contents{file, o, config, all-projects, config-path, date}
+      ex{'emacs {file}'}
 
    match o:
       match {"_" => {p >> config.projects[p]}} ->
@@ -169,19 +175,14 @@ run{} =
       {help => true?} ->
          print yargs.help{}
 
+      {=> true? ago} ->
+         open with today{}.subtract{days = Number{ago}}
 
-      {ago => true?} ->
-         print "TODO"
-
-      {future => true?} ->
-         print "TODO"
-
+      {=> true? future} ->
+         open with today{}.add{days = Number{future}}
 
       else ->
-         date = today{}.format{"YYYY-MM-DD"}
-         file = path.join{root, '{date}.q'}
-         initialize-contents{file, o, config, all-projects, config-path}
-         ex{'emacs {file}'}
+         open with today{}
 
 
 run-cwd{project-name} =
